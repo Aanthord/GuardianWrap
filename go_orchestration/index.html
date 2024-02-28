@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>GuardianWrap Event Viewer</title>
+    <style>
+        body { font-family: Arial, sans-serif; }
+        #events { margin-top: 20px; }
+    </style>
+</head>
+<body>
+    <h1>GuardianWrap Event Viewer</h1>
+    <div id="status">Connecting to WebSocket...</div>
+    <div id="events"></div>
+
+    <script>
+        const statusDiv = document.getElementById('status');
+        const eventsDiv = document.getElementById('events');
+
+        // Assuming the WebSocket server is running on the same host and port 8080
+        const ws = new WebSocket('ws://' + window.location.hostname + ':8080/events/ws');
+
+        ws.onopen = function() {
+            statusDiv.textContent = 'Connected to WebSocket.';
+        };
+
+        ws.onmessage = function(event) {
+            console.log('Message from server:', event.data);
+            const eventData = JSON.parse(event.data);
+
+            // Display the event or alert data
+            const eventElement = document.createElement('div');
+            if (eventData.type && eventData.message) {
+                // It's an alert
+                eventElement.innerHTML = `<strong>Alert:</strong> ${eventData.type} - ${eventData.message}`;
+            } else {
+                // Assuming it's a generic event
+                eventElement.textContent = `Event: ${event.data}`;
+            }
+            eventsDiv.appendChild(eventElement);
+        };
+
+        ws.onerror = function(error) {
+            console.error('WebSocket Error:', error);
+            statusDiv.textContent = 'WebSocket error. See console for details.';
+        };
+
+        ws.onclose = function() {
+            statusDiv.textContent = 'WebSocket connection closed.';
+        };
+    </script>
+</body>
+</html>
+
