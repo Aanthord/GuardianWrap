@@ -16,7 +16,7 @@ void init_logger() {
     }
 }
 
-void log_message(const char *message) {
+void log_message(LogLevel level, const char *message) {
     if (!log_file) {
         fprintf(stderr, "Logger not initialized\n");
         return;
@@ -40,8 +40,8 @@ void log_message(const char *message) {
         sprintf(&hex_hash[i * 2], "%02x", hash[i]);
     }
 
-    // Log with structured format: timestamp, hash, and message
-    fprintf(log_file, "[%s] %s %s\n", time_str, hex_hash, message);
+    // Log with structured format: timestamp, level, hash, and message
+    fprintf(log_file, "[%s] [%s] %s %s\n", time_str, LOG_LEVEL_NAMES[level], hex_hash, message);
     fflush(log_file); // Ensure log entry is written immediately
 }
 
@@ -51,4 +51,3 @@ void close_logger() {
         log_file = NULL;
     }
 }
-
