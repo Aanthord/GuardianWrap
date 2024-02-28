@@ -5,8 +5,9 @@ FROM ubuntu:latest
 ENV DEBIAN_FRONTEND=noninteractive
 
 # Install build essentials (GCC, Make, etc.) and other dependencies
+# Including generic Linux headers
 RUN apt-get update && \
-    apt-get install -y build-essential libc6-dev clang libelf-dev linux-headers-$(uname -r) && \
+    apt-get install -y build-essential libc6-dev clang libelf-dev linux-headers-generic && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
 
