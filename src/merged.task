@@ -1,0 +1,299 @@
+#include "logger.h"
+#include <stdio.h>
+#include <stdlib.h>
+#include <unistd.h>
+#include <sys/types.h>
+#include <sys/wait.h>
+#include <signal.h>
+
+#define CRITICAL_SECURITY_BREACH 1
+#define BUFFER_OVERFLOW_DETECTED 2
+#define SUSPICIOUS_ACTIVITY 3
+
+// Forward declarations
+void handle_monitoring_alert(int alert_type);
+void shutdown_application();
+void restart_application(const char *appName, char *const argv[]);
+void notify_administrator(const char *message);
+void increase_logging_level();
+
+pid_t targetAppPid = -1; // Assume this is set when the monitored application is launched
+
+void handle_monitoring_alert(int alert_type) {
+    switch (alert_type) {
+        case CRITICAL_SECURITY_BREACH:
+            log_message("Critical security breach detected. Shutting down application.");
+            shutdown_application();
+            notify_administrator("Critical security breach detected. Application shutdown.");
+            break;
+        case BUFFER_OVERFLOW_DETECTED:
+            log_message("Buffer overflow detected. Attempting to restart application.");
+            restart_application("target_application", NULL); // Placeholder, adjust as necessary
+            notify_administrator("Buffer overflow detected. Application restarted.");
+            break;
+        case SUSPICIOUS_ACTIVITY:
+            log_message("Suspicious activity detected. Increasing logging level.");
+            increase_logging_level();
+            break;
+        default:
+            log_message("Unknown alert type received.");
+            break;
+    }
+}
+
+void shutdown_application() {
+    if (targetAppPid != -1) {
+        kill(targetAppPid, SIGTERM); // Attempt to terminate the application gracefully
+        waitpid(targetAppPid, NULL, 0); // Wait for the application to terminate
+    }
+}
+
+void restart_application(const char *appName, char *const argv[]) {
+    shutdown_application(); // Ensure the application is terminated first
+    // Assuming appName and argv are correctly set up for the target application
+    pid_t pid = fork();
+    if (pid == 0) {
+        // Child process: execute the target application
+        if (execvp(appName, argv) == -1) {
+            perror("Failed to restart application");
+            exit(EXIT_FAILURE);
+        }
+    } else if (pid > 0) {
+        targetAppPid = pid; // Update global PID for the new instance of the application
+    } else {
+        log_message("Failed to fork while attempting to restart application.");
+    }
+}
+
+void notify_administrator(const char *message) {
+    // Simplified example: could be an email, SNMP trap, or a message to a monitoring dashboard
+    printf("ADMIN ALERT: %s\n", message);
+}
+
+void increase_logging_level() {
+    // This function would interface with the logging system to increase verbosity
+    // Placeholder for demonstration purposes
+    log_message("Logging level increased.");
+}
+
+#include "utils.h"
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+
+char* bytes_to_hex(const uint8_t* bytes, size_t len) {
+    char* hex_string = malloc((len * 2) + 1);
+    for (size_t i = 0; i < len; i++) {
+        sprintf(hex_string + (i * 2), "%02x", bytes[i]);
+    }
+    hex_string[len * 2] = '\0';
+    return hex_string;
+}
+
+void register_signal_handlers(void (*handler)(int)) {
+    // Example for SIGINT
+    if (signal(SIGINT, handler) == SIG_ERR) {
+        fprintf(stderr, "Cannot handle SIGINT!\n");
+        exit(EXIT_FAILURE);
+    }
+    // Additional signals could be registered here
+}
+
+#include <stdio.h>  // Standard I/O for file operations
+#include <stdlib.h> // Standard library for exit
+
+// Function to append data to an immutable log file
+void immutable_append(const char *data) {
+    // Open the log file in append mode to ensure data is only added
+    FILE *fp = fopen("immutable_log.txt", "a");
+    if (fp == NULL) {
+        perror("Failed to open immutable log file"); // Error handling if file cannot be opened
+        exit(EXIT_FAILURE); // Exit the program on failure
+    }
+
+    fprintf(fp, "%s\n", data); // Append the data to the file with a newline
+    fclose(fp); // Close the file after appending
+}
+
+#include "dumper.h" // Include the header file for declarations
+#include <stdio.h>  // Standard I/O for file operations
+#include <stdlib.h> // Standard library for memory allocation
+#include <execinfo.h> // For backtrace functionality
+#include <fcntl.h>  // For file control operations like open
+#include <unistd.h> // For close function
+
+void collect_stack_dump() {
+    void *array[20]; // Increase stack frame capture depth
+    size_t size; // To store the number of stack frames captured
+    char **strings; // For storing the symbols (function names) of stack frames
+    int fd; // File descriptor for the stack dump file
+
+    // Open the stack dump file with write, create, and append options
+    fd = open("stack_dump.txt", O_WRONLY|O_CREAT|O_APPEND, 0644);
+    if (fd < 0) {
+        perror("Failed to open stack dump file"); // Error handling
+        return;
+    }
+
+    size = backtrace(array, sizeof(array) / sizeof(void*)); // Capture stack frames
+    strings = backtrace_symbols(array, size); // Convert addresses to strings
+
+    if (strings != NULL) {
+        for (size_t i = 0; i < size; i++) {
+            dprintf(fd, "%s\n", strings[i]); // Write each symbol to file
+        }
+        free(strings); // Free the allocated memory for symbols
+    }
+
+    close(fd); // Close the file descriptor
+}
+
+#include "logger.h"
+#include "blake3.h"
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <time.h>
+
+FILE *log_file = NULL;
+const char *log_file_path = "application.log";
+
+void init_logger() {
+    log_file = fopen(log_file_path, "a");
+    if (!log_file) {
+        perror("Failed to open log file");
+        exit(EXIT_FAILURE);
+    }
+}
+
+void log_message(const char *message) {
+    if (!log_file) {
+        fprintf(stderr, "Logger not initialized\n");
+        return;
+    }
+
+    // Timestamp for the log entry
+    time_t now = time(NULL);
+    char *time_str = ctime(&now);
+    time_str[strlen(time_str) - 1] = '\0'; // Remove newline
+
+    // Compute BLAKE3 hash
+    uint8_t hash[BLAKE3_OUT_LEN];
+    blake3_hasher hasher;
+    blake3_hasher_init(&hasher);
+    blake3_hasher_update(&hasher, (const uint8_t *)message, strlen(message));
+    blake3_hasher_finalize(&hasher, hash, sizeof(hash));
+
+    // Convert hash to hex string
+    char hex_hash[BLAKE3_OUT_LEN * 2 + 1];
+    for (size_t i = 0; i < BLAKE3_OUT_LEN; ++i) {
+        sprintf(&hex_hash[i * 2], "%02x", hash[i]);
+    }
+
+    // Log with structured format: timestamp, hash, and message
+    fprintf(log_file, "[%s] %s %s\n", time_str, hex_hash, message);
+    fflush(log_file); // Ensure log entry is written immediately
+}
+
+void close_logger() {
+    if (log_file) {
+        fclose(log_file);
+        log_file = NULL;
+    }
+}
+
+#include "logger.h"
+#include <stdio.h>
+#include <stdlib.h>
+#include <unistd.h>
+#include <sys/wait.h>
+#include <signal.h>
+
+void setup_canary_monitoring();
+void perform_cleanup();
+void handle_child_process(char *const argv[]);
+void signal_handler(int sig);
+void register_signal_handlers();
+
+volatile sig_atomic_t child_exited = 0;
+
+int main(int argc, char *argv[]) {
+    if (argc < 2) {
+        fprintf(stderr, "Usage: %s <application> [args...]\n", argv[0]);
+        return EXIT_FAILURE;
+    }
+
+    init_logger();
+    log_message("Guardian Wrapper initiated.");
+
+    setup_canary_monitoring();
+    register_signal_handlers();
+
+    pid_t pid = fork();
+    if (pid == 0) {
+        // Child process
+        handle_child_process(&argv[1]);
+    } else if (pid > 0) {
+        // Parent process
+        int status;
+        while (!child_exited) {
+            pause(); // Wait for signals
+        }
+        waitpid(pid, &status, 0); // Collect child's exit status
+        if (WIFEXITED(status)) {
+            log_message("Application exited normally.");
+        } else {
+            log_message("Application terminated unexpectedly.");
+        }
+    } else {
+        // Fork failed
+        perror("Failed to fork");
+        perform_cleanup();
+        close_logger();
+        return EXIT_FAILURE;
+    }
+
+    perform_cleanup();
+    close_logger();
+    return EXIT_SUCCESS;
+}
+
+void setup_canary_monitoring() {
+    log_message("Stack canary monitoring setup initiated.");
+}
+
+void perform_cleanup() {
+    log_message("Performing cleanup operations.");
+}
+
+void handle_child_process(char *const argv[]) {
+    if (execvp(argv[0], argv) == -1) {
+        perror("Error launching application");
+        exit(EXIT_FAILURE);
+    }
+}
+
+void signal_handler(int sig) {
+    switch (sig) {
+        case SIGCHLD:
+            child_exited = 1;
+            break;
+        // Handle other signals as needed
+        default:
+            break;
+    }
+}
+
+void register_signal_handlers() {
+    struct sigaction sa;
+    sa.sa_handler = signal_handler;
+    sigemptyset(&sa.sa_mask);
+    sa.sa_flags = 0;
+
+    if (sigaction(SIGCHLD, &sa, NULL) == -1) {
+        perror("Error registering signal handler");
+        exit(EXIT_FAILURE);
+    }
+    // Register other signal handlers as needed
+}
+
