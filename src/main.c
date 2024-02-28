@@ -18,17 +18,13 @@ typedef struct {
 
 #define STACK_CANARY_MAGIC "CANARY42"
 
-// Define constants for stack canary protection levels
 #define STACK_CANARY_LOW 0
 #define STACK_CANARY_HIGH 1
 
-// Constants for BLAKE3 hashing
-#define SALTSIZE 16 // Size of the salt in bytes
-#define NUM_ROUNDS 3 // Number of hashing rounds
+#define SALTSIZE 16
+#define SHA256_DIGEST_LENGTH 32
 
-// Constants for SHA-256 hashing
-#define SHA256_DIGEST_LENGTH 32 // SHA-256 digest length in bytes
-
+// Function prototypes
 void setup_canary_monitoring(StackCanary *canary, int protection_level);
 void validate_canary(StackCanary *canary);
 void perform_cleanup();
@@ -37,16 +33,24 @@ void signal_handler(int sig);
 void register_signal_handlers();
 void rand_bytes(uint8_t *buf, size_t len);
 
+// Volatile variable for signal handling
 volatile sig_atomic_t child_exited = 0;
 
 int main(int argc, char *argv[]) {
+    // Validate command-line arguments
     if (argc < 2) {
         fprintf(stderr, "Usage: %s <application> [args...]\n", argv[0]);
         return EXIT_FAILURE;
     }
+    // Check if the provided application path is accessible
+    if (access(argv[1], F_OK) == -1) {
+        perror("Error accessing application path");
+        return EXIT_FAILURE;
+    }
 
+    // Initialize logger
     init_logger();
-    log_message(LOG_LEVEL_INFO, "Guardian Wrapper initiated.");
+    log_message("Guardian Wrapper initiated.");
 
     // Seed random number generator
     srand(time(NULL));
@@ -55,8 +59,10 @@ int main(int argc, char *argv[]) {
     StackCanary canary;
     setup_canary_monitoring(&canary, STACK_CANARY_HIGH);
 
+    // Register signal handlers
     register_signal_handlers();
 
+    // Fork a child process to execute the target application
     pid_t pid = fork();
     if (pid == 0) {
         // Child process
@@ -64,15 +70,17 @@ int main(int argc, char *argv[]) {
     } else if (pid > 0) {
         // Parent process
         int status;
+        // Continuously validate the stack canary until child process exits
         while (!child_exited) {
-            validate_canary(&canary); // Runtime canary validation
+            validate_canary(&canary);
             pause(); // Wait for signals
         }
-        waitpid(pid, &status, 0); // Collect child's exit status
+        // Collect child's exit status
+        waitpid(pid, &status, 0);
         if (WIFEXITED(status)) {
-            log_message(LOG_LEVEL_INFO, "Application exited normally.");
+            log_message("Application exited normally.");
         } else {
-            log_message(LOG_LEVEL_ERROR, "Application terminated unexpectedly.");
+            log_message("Application terminated unexpectedly.");
         }
     } else {
         // Fork failed
@@ -82,11 +90,13 @@ int main(int argc, char *argv[]) {
         return EXIT_FAILURE;
     }
 
+    // Cleanup and exit
     perform_cleanup();
     close_logger();
     return EXIT_SUCCESS;
 }
 
+// Setup stack canary monitoring
 void setup_canary_monitoring(StackCanary *canary, int protection_level) {
     // Generate a random value and salt
     uint64_t random_value = (uint64_t)rand();
@@ -125,25 +135,28 @@ void setup_canary_monitoring(StackCanary *canary, int protection_level) {
         canary->value ^= *((uint64_t *)canary->magic);
     }
 
-    log_message(LOG_LEVEL_INFO, "Stack canary monitoring setup initiated.");
+    log_message("Stack canary monitoring setup initiated.");
 }
 
+// Validate stack canary
 void validate_canary(StackCanary *canary) {
     // Retrieve the location of the canary
     uint64_t *canary_location = (uint64_t *)((char *)canary + (rand() % (sizeof(StackCanary) - sizeof(uint64_t))));
 
     // Check if the canary value matches the expected value
     if (*canary_location != canary->value) {
-        log_message(LOG_LEVEL_ERROR, "Stack canary validation failed. Possible buffer overflow attempt detected.");
+        log_message("Stack canary validation failed. Possible buffer overflow attempt detected.");
         // Perform appropriate action (e.g., terminate program, log incident)
         exit(EXIT_FAILURE);
     }
 }
 
+// Perform cleanup operations
 void perform_cleanup() {
-    log_message(LOG_LEVEL_INFO, "Performing cleanup operations.");
+    log_message("Performing cleanup operations.");
 }
 
+// Handle execution of the target application
 void handle_child_process(char *const argv[]) {
     if (execvp(argv[0], argv) == -1) {
         perror("Error launching application");
@@ -151,6 +164,7 @@ void handle_child_process(char *const argv[]) {
     }
 }
 
+// Signal handler for SIGCHLD
 void signal_handler(int sig) {
     switch (sig) {
         case SIGCHLD:
@@ -162,6 +176,7 @@ void signal_handler(int sig) {
     }
 }
 
+// Register signal handlers
 void register_signal_handlers() {
     struct sigaction sa;
     sa.sa_handler = signal_handler;
@@ -175,6 +190,7 @@ void register_signal_handlers() {
     // Register other signal handlers as needed
 }
 
+// Generate random bytes
 void rand_bytes(uint8_t *buf, size_t len) {
     FILE *urand = fopen("/dev/urandom", "rb");
     if (!urand) {
