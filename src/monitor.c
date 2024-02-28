@@ -1,4 +1,5 @@
-#include "logger.h"
+#include "monitor.h"
+#include "logger.h" // Include logger for error logging
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
@@ -22,28 +23,30 @@ pid_t targetAppPid = -1; // Assume this is set when the monitored application is
 void handle_monitoring_alert(int alert_type) {
     switch (alert_type) {
         case CRITICAL_SECURITY_BREACH:
-            log_message("Critical security breach detected. Shutting down application.");
+            log_message(LOG_LEVEL_ERROR, "Critical security breach detected. Shutting down application.");
             shutdown_application();
             notify_administrator("Critical security breach detected. Application shutdown.");
             break;
         case BUFFER_OVERFLOW_DETECTED:
-            log_message("Buffer overflow detected. Attempting to restart application.");
+            log_message(LOG_LEVEL_WARN, "Buffer overflow detected. Attempting to restart application.");
             restart_application("target_application", NULL); // Placeholder, adjust as necessary
             notify_administrator("Buffer overflow detected. Application restarted.");
             break;
         case SUSPICIOUS_ACTIVITY:
-            log_message("Suspicious activity detected. Increasing logging level.");
+            log_message(LOG_LEVEL_INFO, "Suspicious activity detected. Increasing logging level.");
             increase_logging_level();
             break;
         default:
-            log_message("Unknown alert type received.");
+            log_message(LOG_LEVEL_WARN, "Unknown alert type received.");
             break;
     }
 }
 
 void shutdown_application() {
     if (targetAppPid != -1) {
-        kill(targetAppPid, SIGTERM); // Attempt to terminate the application gracefully
+        if (kill(targetAppPid, SIGTERM) != 0) { // Attempt to terminate the application gracefully
+            log_message(LOG_LEVEL_ERROR, "Failed to shutdown application.");
+        }
         waitpid(targetAppPid, NULL, 0); // Wait for the application to terminate
     }
 }
@@ -55,13 +58,13 @@ void restart_application(const char *appName, char *const argv[]) {
     if (pid == 0) {
         // Child process: execute the target application
         if (execvp(appName, argv) == -1) {
-            perror("Failed to restart application");
+            log_message(LOG_LEVEL_ERROR, "Failed to restart application.");
             exit(EXIT_FAILURE);
         }
     } else if (pid > 0) {
         targetAppPid = pid; // Update global PID for the new instance of the application
     } else {
-        log_message("Failed to fork while attempting to restart application.");
+        log_message(LOG_LEVEL_ERROR, "Failed to fork while attempting to restart application.");
     }
 }
 
@@ -73,6 +76,5 @@ void notify_administrator(const char *message) {
 void increase_logging_level() {
     // This function would interface with the logging system to increase verbosity
     // Placeholder for demonstration purposes
-    log_message("Logging level increased.");
+    log_message(LOG_LEVEL_INFO, "Logging level increased.");
 }
-
