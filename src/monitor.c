@@ -1,5 +1,4 @@
-#include "monitor.h"
-#include "logger.h" // Include logger for error logging
+#include "logger.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
@@ -18,63 +17,74 @@ void restart_application(const char *appName, char *const argv[]);
 void notify_administrator(const char *message);
 void increase_logging_level();
 
-pid_t targetAppPid = -1; // Assume this is set when the monitored application is launched
+// Global variable to store the PID of the target application
+pid_t targetAppPid = -1;
 
+// Function to handle different monitoring alerts
 void handle_monitoring_alert(int alert_type) {
     switch (alert_type) {
         case CRITICAL_SECURITY_BREACH:
-            log_message(LOG_LEVEL_ERROR, "Critical security breach detected. Shutting down application.");
+            // Log critical security breach and take appropriate actions
+            log_message("Critical security breach detected. Shutting down application.");
             shutdown_application();
             notify_administrator("Critical security breach detected. Application shutdown.");
             break;
         case BUFFER_OVERFLOW_DETECTED:
-            log_message(LOG_LEVEL_WARN, "Buffer overflow detected. Attempting to restart application.");
+            // Log buffer overflow and attempt to restart the application
+            log_message("Buffer overflow detected. Attempting to restart application.");
             restart_application("target_application", NULL); // Placeholder, adjust as necessary
             notify_administrator("Buffer overflow detected. Application restarted.");
             break;
         case SUSPICIOUS_ACTIVITY:
-            log_message(LOG_LEVEL_INFO, "Suspicious activity detected. Increasing logging level.");
+            // Log suspicious activity and increase logging level
+            log_message("Suspicious activity detected. Increasing logging level.");
             increase_logging_level();
             break;
         default:
-            log_message(LOG_LEVEL_WARN, "Unknown alert type received.");
+            log_message("Unknown alert type received.");
             break;
     }
 }
 
+// Function to gracefully shut down the application
 void shutdown_application() {
     if (targetAppPid != -1) {
-        if (kill(targetAppPid, SIGTERM) != 0) { // Attempt to terminate the application gracefully
-            log_message(LOG_LEVEL_ERROR, "Failed to shutdown application.");
-        }
-        waitpid(targetAppPid, NULL, 0); // Wait for the application to terminate
+        // Send SIGTERM to terminate the application
+        kill(targetAppPid, SIGTERM);
+        // Wait for the application to terminate
+        waitpid(targetAppPid, NULL, 0);
     }
 }
 
+// Function to restart the application
 void restart_application(const char *appName, char *const argv[]) {
-    shutdown_application(); // Ensure the application is terminated first
-    // Assuming appName and argv are correctly set up for the target application
+    // Ensure the application is terminated before restarting
+    shutdown_application();
+
+    // Fork a new process to execute the target application
     pid_t pid = fork();
     if (pid == 0) {
         // Child process: execute the target application
         if (execvp(appName, argv) == -1) {
-            log_message(LOG_LEVEL_ERROR, "Failed to restart application.");
+            perror("Failed to restart application");
             exit(EXIT_FAILURE);
         }
     } else if (pid > 0) {
-        targetAppPid = pid; // Update global PID for the new instance of the application
+        // Parent process: update global PID for the new instance of the application
+        targetAppPid = pid;
     } else {
-        log_message(LOG_LEVEL_ERROR, "Failed to fork while attempting to restart application.");
+        log_message("Failed to fork while attempting to restart application.");
     }
 }
 
+// Function to notify the administrator about events
 void notify_administrator(const char *message) {
-    // Simplified example: could be an email, SNMP trap, or a message to a monitoring dashboard
+    // Placeholder for notification mechanism (e.g., email, SNMP trap, etc.)
     printf("ADMIN ALERT: %s\n", message);
 }
 
+// Function to increase logging level for monitoring purposes
 void increase_logging_level() {
-    // This function would interface with the logging system to increase verbosity
-    // Placeholder for demonstration purposes
-    log_message(LOG_LEVEL_INFO, "Logging level increased.");
+    // Placeholder for increasing logging level
+    log_message("Logging level increased.");
 }
