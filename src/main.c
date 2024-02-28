@@ -1,28 +1,29 @@
-#include "logger.h"
-#include <stdio.h>
-#include <stdlib.h>
-#include <unistd.h>
-#include <sys/wait.h>
-#include <signal.h>
-#include <stdint.h>
-#include <string.h>
-#include <time.h>
-#include "blake3.h"
-#include "sha256.h"
+#include <Python.h> // Include the Python API functions
+#include "logger.h" // Include the custom logger header
+#include <stdio.h> // Include standard input/output functions
+#include <stdlib.h> // Include standard library functions
+#include <unistd.h> // Include POSIX operating system API
+#include <sys/wait.h> // Include wait functions for process management
+#include <signal.h> // Include signal handling functions
+#include <stdint.h> // Include integer types
+#include <string.h> // Include string manipulation functions
+#include <time.h> // Include time-related functions
+#include <linux/bpf.h> // Include Linux BPF definitions
+#include <bpf/libbpf.h> // Include libbpf library for eBPF handling
 
 // Define a custom stack canary structure
 typedef struct {
-    uint64_t value;
+    uint64_t value; // Value of the canary
     char magic[8]; // Magic bytes for extra validation
 } StackCanary;
 
-#define STACK_CANARY_MAGIC "CANARY42"
+#define STACK_CANARY_MAGIC "CANARY42" // Define magic bytes for the canary
 
-#define STACK_CANARY_LOW 0
-#define STACK_CANARY_HIGH 1
+#define STACK_CANARY_LOW 0 // Define constant for low stack canary protection level
+#define STACK_CANARY_HIGH 1 // Define constant for high stack canary protection level
 
-#define SALTSIZE 16
-#define SHA256_DIGEST_LENGTH 32
+#define SALTSIZE 16 // Define salt size for generating canary
+#define SHA256_DIGEST_LENGTH 32 // Define length of SHA-256 hash
 
 // Function prototypes
 void setup_canary_monitoring(StackCanary *canary, int protection_level);
@@ -32,10 +33,16 @@ void handle_child_process(char *const argv[]);
 void signal_handler(int sig);
 void register_signal_handlers();
 void rand_bytes(uint8_t *buf, size_t len);
+int load_bpf_program();
+int setup_perf_events();
+int setup_network_events();
+void monitor_perf_events(int fd);
+void monitor_network_events(int sock_fd);
 
 // Volatile variable for signal handling
 volatile sig_atomic_t child_exited = 0;
 
+// Main function
 int main(int argc, char *argv[]) {
     // Validate command-line arguments
     if (argc < 2) {
@@ -62,6 +69,26 @@ int main(int argc, char *argv[]) {
     // Register signal handlers
     register_signal_handlers();
 
+    // Load and attach eBPF program
+    if (load_bpf_program() < 0) {
+        log_message("Failed to load eBPF program. Exiting.");
+        return EXIT_FAILURE;
+    }
+
+    // Setup and monitor performance events
+    int perf_fd = setup_perf_events();
+    if (perf_fd < 0) {
+        log_message("Failed to setup performance events. Exiting.");
+        return EXIT_FAILURE;
+    }
+
+    // Setup and monitor network events
+    int sock_fd = setup_network_events();
+    if (sock_fd < 0) {
+        log_message("Failed to setup network events. Exiting.");
+        return EXIT_FAILURE;
+    }
+
     // Fork a child process to execute the target application
     pid_t pid = fork();
     if (pid == 0) {
@@ -73,6 +100,8 @@ int main(int argc, char *argv[]) {
         // Continuously validate the stack canary until child process exits
         while (!child_exited) {
             validate_canary(&canary);
+            monitor_perf_events(perf_fd);
+            monitor_network_events(sock_fd);
             pause(); // Wait for signals
         }
         // Collect child's exit status
@@ -94,6 +123,74 @@ int main(int argc, char *argv[]) {
     perform_cleanup();
     close_logger();
     return EXIT_SUCCESS;
+}
+
+// Load and attach eBPF program
+int load_bpf_program() {
+    int prog_fd;
+    struct bpf_insn prog[] = {
+        // eBPF program code to monitor system calls
+        BPF_MOV64_REG(BPF_REG_6, BPF_REG_1),            // Store syscall number in register R6
+        BPF_LD_ABS(BPF_B, BPF_PSEUDO_CALL, 0),         // Load syscall number from stack
+        BPF_ALU64_IMM(BPF_AND, BPF_REG_6, 0xff),       // Mask syscall number with 0xff
+        BPF_JMP_IMM(BPF_JEQ, BPF_REG_6, __NR_write, 2), // Jump to ALLOW block if syscall is write
+        BPF_JMP_IMM(BPF_JEQ, BPF_REG_6, __NR_read, 2),  // Jump to ALLOW block if syscall is read
+        BPF_JMP_IMM(BPF_JEQ, BPF_REG_6, __NR_open, 2),  // Jump to ALLOW block if syscall is open
+        BPF_JMP_IMM(BPF_JEQ, BPF_REG_6, __NR_close, 2), // Jump to ALLOW block if syscall is close
+        BPF_JMP_IMM(BPF_JEQ, BPF_REG_6, __NR_exit, 2),  // Jump to ALLOW block if syscall is exit
+        BPF_JMP_IMM(BPF_JEQ, BPF_REG_6, __NR_exit_group, 2), // Jump to ALLOW block if syscall is exit_group
+        BPF_MOV64_IMM(BPF_REG_0, SECCOMP_RET_ALLOW),    // Return ALLOW if syscall is whitelisted
+        BPF_EXIT_INSN(),                                // Exit syscall
+        BPF_MOV64_IMM(BPF_REG_0, SECCOMP_RET_KILL),     // Return KILL if syscall is not whitelisted
+        BPF_EXIT_INSN(),                                // Exit syscall
+    };
+    struct bpf_load_program_attr attr = {
+        .insns = (unsigned long)prog,
+        .insn_cnt = sizeof(prog) / sizeof(struct bpf_insn),
+        .license = "GPL"
+    };
+
+    // Load eBPF program
+    prog_fd = bpf_load_program(&attr);
+    if (prog_fd < 0) {
+        perror("Failed to load eBPF program");
+        return -1;
+    }
+
+    // Attach eBPF program to suitable hook
+    if (bpf_attach_program(prog_fd, BPF_PROG_TYPE_SOCKET_FILTER) < 0) {
+        perror("Failed to attach eBPF program");
+        close(prog_fd);
+        return -1;
+    }
+
+    return prog_fd;
+}
+
+// Setup and monitor performance events
+int setup_perf_events() {
+    // Placeholder code for setting up performance events
+    // Add your custom logic here
+    return -1; // Placeholder return value
+}
+
+// Setup and monitor network events
+int setup_network_events() {
+    // Placeholder code for setting up network events
+    // Add your custom logic here
+    return -1; // Placeholder return value
+}
+
+// Monitor performance events
+void monitor_perf_events(int fd) {
+    // Placeholder code for monitoring performance events
+    // Add your custom logic here
+}
+
+// Monitor network events
+void monitor_network_events(int sock_fd) {
+    // Placeholder code for reading network events
+    // Add your custom logic here
 }
 
 // Setup stack canary monitoring
@@ -204,3 +301,4 @@ void rand_bytes(uint8_t *buf, size_t len) {
     }
     fclose(urand);
 }
+
