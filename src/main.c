@@ -46,7 +46,7 @@ int main(int argc, char *argv[]) {
     }
 
     init_logger();
-    log_message("Guardian Wrapper initiated.");
+    log_message(LOG_LEVEL_INFO, "Guardian Wrapper initiated.");
 
     // Seed random number generator
     srand(time(NULL));
@@ -70,9 +70,9 @@ int main(int argc, char *argv[]) {
         }
         waitpid(pid, &status, 0); // Collect child's exit status
         if (WIFEXITED(status)) {
-            log_message("Application exited normally.");
+            log_message(LOG_LEVEL_INFO, "Application exited normally.");
         } else {
-            log_message("Application terminated unexpectedly.");
+            log_message(LOG_LEVEL_ERROR, "Application terminated unexpectedly.");
         }
     } else {
         // Fork failed
@@ -125,7 +125,7 @@ void setup_canary_monitoring(StackCanary *canary, int protection_level) {
         canary->value ^= *((uint64_t *)canary->magic);
     }
 
-    log_message("Stack canary monitoring setup initiated.");
+    log_message(LOG_LEVEL_INFO, "Stack canary monitoring setup initiated.");
 }
 
 void validate_canary(StackCanary *canary) {
@@ -134,14 +134,14 @@ void validate_canary(StackCanary *canary) {
 
     // Check if the canary value matches the expected value
     if (*canary_location != canary->value) {
-        log_message("Stack canary validation failed. Possible buffer overflow attempt detected.");
+        log_message(LOG_LEVEL_ERROR, "Stack canary validation failed. Possible buffer overflow attempt detected.");
         // Perform appropriate action (e.g., terminate program, log incident)
         exit(EXIT_FAILURE);
     }
 }
 
 void perform_cleanup() {
-    log_message("Performing cleanup operations.");
+    log_message(LOG_LEVEL_INFO, "Performing cleanup operations.");
 }
 
 void handle_child_process(char *const argv[]) {
