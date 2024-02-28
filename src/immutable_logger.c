@@ -1,16 +1,20 @@
-#include <stdio.h>  // Standard I/O for file operations
-#include <stdlib.h> // Standard library for exit
+#include "immutable_logger.h"
+#include "logger.h" // Include logger for error logging
+#include <stdio.h>
+#include <stdlib.h>
 
 // Function to append data to an immutable log file
 void immutable_append(const char *data) {
     // Open the log file in append mode to ensure data is only added
     FILE *fp = fopen("immutable_log.txt", "a");
     if (fp == NULL) {
-        perror("Failed to open immutable log file"); // Error handling if file cannot be opened
-        exit(EXIT_FAILURE); // Exit the program on failure
+        log_message(LOG_LEVEL_ERROR, "Failed to open immutable log file");
+        return;
     }
 
     fprintf(fp, "%s\n", data); // Append the data to the file with a newline
-    fclose(fp); // Close the file after appending
-}
 
+    if (fclose(fp) != 0) {
+        log_message(LOG_LEVEL_ERROR, "Failed to close immutable log file");
+    }
+}
