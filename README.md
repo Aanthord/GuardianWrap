@@ -1,4 +1,24 @@
-# Guardian Wrapper Project Overview
+# Guardian Wrapper Project
+
+The Guardian Wrapper Project enhances Linux application security through advanced monitoring techniques. It includes stack canary monitoring to detect buffer overflows, secure logging with BLAKE3 hashing for log integrity, and dynamic response mechanisms for real-time security incident handling.
+
+## Table of Contents
+- [Overview](#overview)
+- [Project Objectives](#project-objectives)
+- [Project Components and Progress](#project-components-and-progress)
+  - [Stack Canary Monitoring](#stack-canary-monitoring)
+  - [Secure Logging System](#secure-logging-system)
+  - [Dynamic Response Mechanisms](#dynamic-response-mechanisms)
+  - [Utility Functions](#utility-functions)
+  - [Integration and System Testing](#integration-and-system-testing)
+- [Documentation and User Guides](#documentation-and-user-guides)
+  - [Go Orchestration Layer Detailed Guide](#go-orchestration-layer-detailed-guide)
+  - [Rust Integration for System Monitoring](#rust-integration-for-system-monitoring)
+  - [eBPF Exec Logger Documentation](#ebpf-exec-logger-documentation)
+- [Getting Started](#getting-started)
+- [Test Scenario: Monitoring and Reacting to execve Syscalls](#test-scenario-monitoring-and-reacting-to-execve-syscalls)
+
+## Overview
 
 The Guardian Wrapper Project enhances Linux application security through advanced monitoring techniques. It includes stack canary monitoring to detect buffer overflows, secure logging with BLAKE3 hashing for log integrity, and dynamic response mechanisms for real-time security incident handling.
 
@@ -10,65 +30,57 @@ The Guardian Wrapper Project enhances Linux application security through advance
 
 ## Project Components and Progress
 
-1. **Stack Canary Monitoring**
-   - **Objective:** Detect memory corruption incidents like buffer overflows.
-   - **Progress:** 70% complete. Basic structure implemented, pending final testing and integration.
+### Stack Canary Monitoring
 
-2. **Secure Logging System**
-   - **Objective:** Securely log application activities, incorporating BLAKE3 hashing.
-   - **Progress:** 80% complete. Implementation in place, pending optimizations and enhancements.
+- **Objective:** Detect memory corruption incidents like buffer overflows.
+- **Progress:** 70% complete. Basic structure implemented, pending final testing and integration.
 
-3. **Dynamic Response Mechanisms**
-   - **Objective:** Automate responses to monitoring alerts for robust incident handling.
-   - **Progress:** 75% complete. Actions defined and partially implemented, awaiting full integration.
+### Secure Logging System
 
-4. **Utility Functions**
-   - **Objective:** Provide essential utility functions for the project, such as signal handling.
-   - **Progress:** 90% complete. Core utilities implemented, with room for additional features.
+- **Objective:** Securely log application activities, incorporating BLAKE3 hashing.
+- **Progress:** 80% complete. Implementation in place, pending optimizations and enhancements.
 
-5. **Integration and System Testing**
-   - **Objective:** Ensure cohesive operation of all components under various scenarios.
-   - **Progress:** 50% complete. Initial integration done, comprehensive testing required.
+### Dynamic Response Mechanisms
 
-6. **Documentation and User Guides**
-   - **Objective:** Offer detailed setup, configuration, and operational guidance.
-   - **Progress:** 40% complete. Basic documentation available, extensive guides needed.
+- **Objective:** Automate responses to monitoring alerts for robust incident handling.
+- **Progress:** 75% complete. Actions defined and partially implemented, awaiting full integration.
+
+### Utility Functions
+
+- **Objective:** Provide essential utility functions for the project, such as signal handling.
+- **Progress:** 90% complete. Core utilities implemented, with room for additional features.
+
+### Integration and System Testing
+
+- **Objective:** Ensure cohesive operation of all components under various scenarios.
+- **Progress:** 50% complete. Initial integration done, comprehensive testing required.
 
 ## Documentation and User Guides
 
-This section offers detailed setup, configuration, and operational guidance to effectively utilize the Guardian Wrapper Project. It encompasses explanations of individual components, including the Go orchestration layer, which plays a crucial role in monitoring, logging, and dynamically responding to system calls.
+This section offers detailed setup, configuration, and operational guidance to effectively utilize the Guardian Wrapper Project. It encompasses explanations of individual components, including the Go orchestration layer, Rust integration for system monitoring, and the eBPF exec logger.
 
 ### Go Orchestration Layer Detailed Guide
 
-The Go orchestration layer serves as the central component for managing eBPF program interactions, WebSocket communications for real-time event streaming, and signal handling for graceful shutdowns. Below is an in-depth overview of its implementation:
+The Go orchestration layer serves as the central component for managing eBPF program interactions, WebSocket communications for real-time event streaming, and signal handling for graceful shutdowns. Below is an in-depth overview of its implementation.
 
-- **Import Dependencies**
-  - Standard Libraries: Utilized for basic I/O, logging, HTTP server management, and OS-level operations.
-  - Third-party Libraries: mux for HTTP routing, websocket for WebSocket management, and bcc for eBPF interactions.
-- **eBPF Program Loading and Attachment**
-  - Function: loadEBPFProgram reads the eBPF program source, compiles it, and attaches it to the execve system call tracepoint.
-  - Error Handling: Critical errors during eBPF operations result in immediate termination to prevent insecure states.
-- **WebSocket Event Streaming Handler**
-  - Function: eventWebSocket upgrades HTTP connections to WebSocket and streams eBPF event data to connected clients.
-  - Concurrency: Utilizes goroutines to handle multiple WebSocket connections and event streams concurrently.
-- **Alert Handling Over WebSocket**
-  - Function: alertWebSocket listens on a channel for alerts and forwards them over WebSocket connections to clients, enabling real-time security notifications.
-- **Signal Handling for Graceful Shutdown**
-  - Implements signal listening for os.Interrupt and syscall.SIGTERM to gracefully terminate the server and cleanup resources.
+### Rust Integration for System Monitoring
 
-- **Main Function Workflow**
-  - **eBPF Program Initialization:** Loads and attaches the eBPF program at startup.
-  - **HTTP Server Setup:** Configures routes and starts the HTTP server for client interactions.
-  - **Graceful Shutdown Handling:** Waits for termination signals to cleanly exit the application.
+The `main.rs` file in the GuardianWrap project plays a crucial role in monitoring system events, particularly focusing on `execve` and file operation events, through the integration of Rust with eBPF. This section provides a comprehensive look at its implementation and functionality.
 
-### Getting Started
+### eBPF Exec Logger Documentation
 
-#### Prerequisites
+This documentation outlines the `exec_logger.c` script, part of the GuardianWrap project, designed to log exec operations performed by processes on a Linux system using eBPF (Extended Berkeley Packet Filter).
+
+## Getting Started
+
+### Prerequisites
+
 - Linux operating system
 - GCC compiler
 - BLAKE3 library
 
-#### Installation
+### Installation
+
 ```bash
 # Clone the repository
 git clone <repository_url>
@@ -88,8 +100,8 @@ Prepare GuardianWrap Components: Ensure the C wrapper (main.c), Rust component (
 Write Test Script
 
 Develop a test script that automates the execution of a test application under the GuardianWrap's supervision.
-
-
+bash
+Copy code
 #!/bin/bash
 
 # Path to the GuardianWrap executable and test application
@@ -124,18 +136,12 @@ else
 fi
 
 exit 0
-```
-
 Execute the Test
 Run the test script and observe the output. Ensure your test application (test_app) performs actions that trigger execve syscalls, and optionally, actions that should trigger stack dumps based on your security policies.
-
-```
-
+bash
+Copy code
 chmod +x test_guardianwrap.sh
 ./test_guardianwrap.sh
-
-```
-
 Evaluate Results
 Success Criteria: The test is successful if the execve syscalls are logged as expected and stack dumps are created for specified conditions.
 Failure Analysis: If syscalls are not logged or stack dumps are not generated as expected, investigate the integration points between the eBPF program, C wrapper, Rust component, and Go orchestration layer. Ensure the eBPF program is correctly attached and monitoring syscalls, and that GuardianWrap components are correctly handling and logging events.
