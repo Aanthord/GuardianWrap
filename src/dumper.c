@@ -1,9 +1,10 @@
-#include "dumper.h" // Include the header file for declarations
-#include <stdio.h>  // Standard I/O for file operations
-#include <stdlib.h> // Standard library for memory allocation
-#include <execinfo.h> // For backtrace functionality
-#include <fcntl.h>  // For file control operations like open
-#include <unistd.h> // For close function
+#include "dumper.h"
+#include "logger.h" // Include logger for error logging
+#include <stdio.h>
+#include <stdlib.h>
+#include <execinfo.h>
+#include <fcntl.h>
+#include <unistd.h>
 
 void collect_stack_dump() {
     void *array[20]; // Increase stack frame capture depth
@@ -14,7 +15,7 @@ void collect_stack_dump() {
     // Open the stack dump file with write, create, and append options
     fd = open("stack_dump.txt", O_WRONLY|O_CREAT|O_APPEND, 0644);
     if (fd < 0) {
-        perror("Failed to open stack dump file"); // Error handling
+        log_message(LOG_LEVEL_ERROR, "Failed to open stack dump file in collect_stack_dump function.");
         return;
     }
 
@@ -26,8 +27,9 @@ void collect_stack_dump() {
             dprintf(fd, "%s\n", strings[i]); // Write each symbol to file
         }
         free(strings); // Free the allocated memory for symbols
+    } else {
+        log_message(LOG_LEVEL_ERROR, "Failed to obtain stack frame symbols in collect_stack_dump function.");
     }
 
     close(fd); // Close the file descriptor
 }
-
