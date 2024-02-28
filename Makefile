@@ -5,13 +5,15 @@ GO := go
 RUSTC := cargo
 EBPF_SOURCE := exec_logger.c
 EBPF_OUT := exec_logger.o
+C_SOURCE_DIR := src
+C_WRAPPER_OUT := $(C_SOURCE_DIR)/guardianwrap
 RUST_DIR := rust_component
 GO_DIR := go_orchestration
 RUST_TARGET := $(RUST_DIR)/target/release/rust_app
 GO_TARGET := $(GO_DIR)/main
 
 # Default target
-all: validate_deps ebpf rust go test
+all: validate_deps ebpf c_wrapper rust go test
 
 # Validate dependencies
 validate_deps:
@@ -30,6 +32,14 @@ $(EBPF_OUT): $(EBPF_SOURCE)
 	$(CC) $(CFLAGS) -target bpf -c $< -o $@
 	@echo "eBPF program built."
 
+# Build C Wrapper
+c_wrapper: $(C_WRAPPER_OUT)
+
+$(C_WRAPPER_OUT): $(C_SOURCE_DIR)/*.c
+	@echo "Building C wrapper..."
+	$(CC) $(CFLAGS) -I$(C_SOURCE_DIR)/include -o $(C_WRAPPER_OUT) $(C_SOURCE_DIR)/*.c
+	@echo "C wrapper built."
+
 # Build Rust component
 rust:
 	@echo "Building Rust component..."
@@ -43,11 +53,15 @@ go:
 	@echo "Go orchestration layer built."
 
 # Test targets for each component
-test: test_ebpf test_rust test_go
+test: test_ebpf test_c_wrapper test_rust test_go
 
 test_ebpf:
 	@echo "Testing eBPF program..."
 	# Placeholder for eBPF testing commands
+
+test_c_wrapper:
+	@echo "Testing C wrapper..."
+	# Placeholder for C wrapper testing commands
 
 test_rust:
 	@echo "Testing Rust component..."
@@ -57,31 +71,14 @@ test_go:
 	@echo "Testing Go orchestration layer..."
 	cd $(GO_DIR) && $(GO) test
 
-# Watch targets for each component
-watch_ebpf:
-	@echo "Watching eBPF source for changes..."
-	@while inotifywait -e modify $(EBPF_SOURCE); do make ebpf; done
-
-watch_rust:
-	@echo "Watching Rust source for changes..."
-	@while inotifywait -r -e modify $(RUST_DIR)/src; do make rust; done
-
-watch_go:
-	@echo "Watching Go source for changes..."
-	@while inotifywait -r -e modify $(GO_DIR)/*.go; do make go; done
-
-# Unified watch command
-watch_all:
-	@echo "Watching all components for changes..."
-	@($(MAKE) watch_ebpf & $(MAKE) watch_rust & $(MAKE) watch_go & wait)
-
 # Clean up
 clean:
 	@echo "Cleaning up build artifacts..."
 	rm -f $(EBPF_OUT)
+	rm -f $(C_WRAPPER_OUT)
 	cd $(RUST_DIR) && $(RUSTC) clean
 	rm -f $(GO_TARGET)
 	@echo "Cleanup done."
 
-.PHONY: all validate_deps ebpf rust go test test_ebpf test_rust test_go clean watch_ebpf watch_rust watch_go watch_all
+.PHONY: all validate_deps ebpf c_wrapper rust go test test_ebpf test_c_wrapper test_rust test_go clean
 
