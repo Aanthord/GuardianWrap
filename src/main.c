@@ -10,6 +10,11 @@
 #include <time.h> // Include time-related functions
 #include <linux/bpf.h> // Include Linux BPF definitions
 #include <bpf/libbpf.h> // Include libbpf library for eBPF handling
+#include <sys/socket.h> // Include socket functions
+#include <netinet/in.h> // Include Internet address family functions
+#include <netinet/tcp.h> // Include TCP related functions
+#include <arpa/inet.h> // Include functions for manipulating IP addresses
+#include <linux/perf_event.h> // Include Linux performance event definitions
 
 // Define a custom stack canary structure
 typedef struct {
@@ -70,7 +75,8 @@ int main(int argc, char *argv[]) {
     register_signal_handlers();
 
     // Load and attach eBPF program
-    if (load_bpf_program() < 0) {
+    int prog_fd = load_bpf_program();
+    if (prog_fd < 0) {
         log_message("Failed to load eBPF program. Exiting.");
         return EXIT_FAILURE;
     }
@@ -169,27 +175,46 @@ int load_bpf_program() {
 
 // Setup and monitor performance events
 int setup_perf_events() {
-    // Placeholder code for setting up performance events
-    // Add your custom logic here
-    return -1; // Placeholder return value
+    int fd;
+    struct perf_event_attr attr = {};
+    // Configure perf event attributes
+    attr.type = PERF_TYPE_HARDWARE;
+    attr.config = PERF_COUNT_HW_CPU_CYCLES;
+    attr.size = sizeof(attr);
+    attr.sample_type = PERF_SAMPLE_RAW;
+    attr.sample_period = 1000000; // Sample every 1 second
+    // Create perf event
+    fd = syscall(__NR_perf_event_open, &attr, -1, 0, -1, 0);
+    if (fd == -1) {
+        perror("Failed to create perf event");
+        return -1;
+    }
+    return fd;
 }
 
 // Setup and monitor network events
 int setup_network_events() {
-    // Placeholder code for setting up network events
-    // Add your custom logic here
-    return -1; // Placeholder return value
+    int sock_fd;
+    // Create a raw socket for monitoring network events
+    sock_fd = socket(AF_INET, SOCK_RAW, IPPROTO_TCP);
+    if (sock_fd < 0) {
+        perror("Failed to create socket");
+        return -1;
+    }
+    return sock_fd;
 }
 
 // Monitor performance events
 void monitor_perf_events(int fd) {
-    // Placeholder code for monitoring performance events
-    // Add your custom logic here
+    uint64_t value;
+    // Read perf event value
+    read(fd, &value, sizeof(value));
+    // Log the value or perform desired actions
 }
 
 // Monitor network events
 void monitor_network_events(int sock_fd) {
-    // Placeholder code for reading network events
+    // Placeholder code for monitoring network events
     // Add your custom logic here
 }
 
@@ -301,4 +326,3 @@ void rand_bytes(uint8_t *buf, size_t len) {
     }
     fclose(urand);
 }
-
