@@ -1,10 +1,10 @@
-#include "logger.h"
-#include <stdio.h>
-#include <stdlib.h>
-#include <unistd.h>
-#include <sys/types.h>
-#include <sys/wait.h>
-#include <signal.h>
+#include "monitor.h" // Include the custom monitor header
+#include "logger.h" // Include the logger for logging alerts
+#include <stdio.h> // Standard I/O operations
+#include <stdlib.h> // Standard library functions
+#include <unistd.h> // POSIX operating system API
+#include <sys/wait.h> // Wait functions for process management
+#include <signal.h> // Signal handling functions
 
 #define CRITICAL_SECURITY_BREACH 1
 #define BUFFER_OVERFLOW_DETECTED 2
@@ -64,27 +64,27 @@ void restart_application(const char *appName, char *const argv[]) {
     // Fork a new process to execute the target application
     pid_t pid = fork();
     if (pid == 0) {
-        // Child process: execute the target application
-        if (execvp(appName, argv) == -1) {
-            perror("Failed to restart application");
-            exit(EXIT_FAILURE);
-        }
+        // Child process
+        execv(appName, argv); // Execute the application
+        perror("Failed to restart application"); // Error handling for execv failure
+        exit(EXIT_FAILURE);
     } else if (pid > 0) {
-        // Parent process: update global PID for the new instance of the application
-        targetAppPid = pid;
+        // Parent process
+        targetAppPid = pid; // Update global variable with new PID
     } else {
-        log_message("Failed to fork while attempting to restart application.");
+        // Fork failed
+        perror("Failed to fork process for application restart");
     }
 }
 
-// Function to notify the administrator about events
+// Function to notify the administrator
 void notify_administrator(const char *message) {
-    // Placeholder for notification mechanism (e.g., email, SNMP trap, etc.)
-    printf("ADMIN ALERT: %s\n", message);
+    // Placeholder implementation for notification
+    printf("Administrator notified: %s\n", message);
 }
 
-// Function to increase logging level for monitoring purposes
+// Function to increase logging level
 void increase_logging_level() {
-    // Placeholder for increasing logging level
-    log_message("Logging level increased.");
+    // Placeholder implementation to increase logging level
+    printf("Logging level increased.\n");
 }
