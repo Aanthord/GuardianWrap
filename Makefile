@@ -1,6 +1,10 @@
 # Variables
 CC := clang
-CFLAGS := -O2 -Wall -Iinclude -I/usr/include/
+
+#clang -O2 -Wall -Iinclude -I/usr/src/linux-headers-5.15.0-97/include/ -I/usr/src/linux-headers-5.15.0-97/arch/x86/include/ -I/usr/src/linux-headers-5.15.0-97/arch/x86/include/uapi/ -I/usr/include/x86_64-linux-gnu/asm/ -target bpf -c ebpf/exec_logger.c -o exec_logger.o
+#CLFAGS := -O2 -Wall -target bpf -I/usr/include/bpf
+#CLFAGS := -O2 -Wall -Iinclude -I/usr/src/linux-headers-5.15.0-97/include/ -I/usr/src/linux-headers-5.15.0-97/arch/x86/include/ -I/usr/src/linux-headers-5.15.0-97/arch/x86/include/uapi/ -I/usr/include/x86_64-linux-gnu/asm/
+#CFLAGS := -O2 -Wall -Iinclude -I/usr/src/linux-headers-5.15.0-97/include/ -I/usr/src/linux-headers-5.15.0-97/arch/x86/include/
 GO := go
 RUSTC := cargo
 EBPF_SOURCE := ebpf/exec_logger.c
