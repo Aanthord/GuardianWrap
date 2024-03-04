@@ -1,20 +1,20 @@
-#include <Python.h> // Include the Python API functions
-#include "logger.h" // Include the custom logger header
-#include <stdio.h> // Include standard input/output functions
-#include <stdlib.h> // Include standard library functions
-#include <unistd.h> // Include POSIX operating system API
-#include <sys/wait.h> // Include wait functions for process management
-#include <signal.h> // Include signal handling functions
-#include <stdint.h> // Include integer types
-#include <string.h> // Include string manipulation functions
-#include <time.h> // Include time-related functions
-#include <linux/bpf.h> // Include Linux BPF definitions
-#include <bpf/libbpf.h> // Include libbpf library for eBPF handling
-#include <sys/socket.h> // Include socket functions
-#include <netinet/in.h> // Include Internet address family functions
-#include <netinet/tcp.h> // Include TCP related functions
-#include <arpa/inet.h> // Include functions for manipulating IP addresses
-#include <linux/perf_event.h> // Include Linux performance event definitions
+#include <stdio.h>
+#include <stdlib.h>
+#include <unistd.h>
+#include <sys/wait.h>
+#include <signal.h>
+#include <stdint.h>
+#include <string.h>
+#include <time.h>
+#include <linux/bpf.h>
+#include <bpf/libbpf.h>
+#include <sys/socket.h>
+#include <netinet/in.h>
+#include <netinet/tcp.h>
+#include <arpa/inet.h>
+#include <linux/perf_event.h>
+#include <selinux/selinux.h>
+#include <selinux/context.h>
 
 // Define a custom stack canary structure
 typedef struct {
@@ -23,7 +23,6 @@ typedef struct {
 } StackCanary;
 
 #define STACK_CANARY_MAGIC "CANARY42" // Define magic bytes for the canary
-
 #define STACK_CANARY_LOW 0 // Define constant for low stack canary protection level
 #define STACK_CANARY_HIGH 1 // Define constant for high stack canary protection level
 
@@ -59,6 +58,11 @@ int main(int argc, char *argv[]) {
         perror("Error accessing application path");
         return EXIT_FAILURE;
     }
+
+    // Initialize SELinux context
+    security_context_t app_context;
+    get_default_context(argv[1], &app_context);
+    setexeccon(app_context);
 
     // Initialize logger
     init_logger();
@@ -131,7 +135,6 @@ int main(int argc, char *argv[]) {
     return EXIT_SUCCESS;
 }
 
-// Load and attach eBPF program
 int load_bpf_program() {
     int prog_fd;
     struct bpf_insn prog[] = {
@@ -325,4 +328,38 @@ void rand_bytes(uint8_t *buf, size_t len) {
         exit(EXIT_FAILURE);
     }
     fclose(urand);
+}
+
+// Setup Seccomp for syscall filtering
+void setup_seccomp() {
+    struct sock_filter filter[] = {
+        /* Validate architecture */
+        BPF_STMT(BPF_LD | BPF_W | BPF_ABS, (offsetof(struct seccomp_data, arch))),
+        BPF_JUMP(BPF_JMP | BPF_JEQ | BPF_K, AUDIT_ARCH_X86_64, 1, 0),
+        BPF_STMT(BPF_RET | BPF_K, SECCOMP_RET_KILL),
+
+        /* Load syscall number */
+        BPF_STMT(BPF_LD | BPF_W | BPF_ABS, (offsetof(struct seccomp_data, nr))),
+
+        /* List allowed syscalls */
+        // Add your syscall rules here
+
+        /* Deny other syscalls */
+        BPF_STMT(BPF_RET | BPF_K, SECCOMP_RET_KILL),
+    };
+
+    struct sock_fprog prog = {
+        .len = (unsigned short)(sizeof(filter) / sizeof(filter[0])),
+        .filter = filter,
+    };
+
+    if (prctl(PR_SET_NO_NEW_PRIVS, 1, 0, 0, 0)) {
+        perror("prctl");
+        exit(EXIT_FAILURE);
+    }
+
+    if (prctl(PR_SET_SECCOMP, SECCOMP_MODE_FILTER, &prog)) {
+        perror("prctl");
+        exit(EXIT_FAILURE);
+    }
 }

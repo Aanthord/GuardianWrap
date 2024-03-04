@@ -1,5 +1,5 @@
-#include "logger.h"
-#include "blake3.h"
+#include "include/logger.h"
+#include "include/blake3.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>

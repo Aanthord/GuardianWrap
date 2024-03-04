@@ -1,4 +1,4 @@
-#include "dumper.h" // Include the header file for declarations
+#include "include/dumper.h" // Include the header file for declarations
 #include <stdio.h>  // Standard I/O for file operations
 #include <stdlib.h> // Standard library for memory allocation
 #include <execinfo.h> // For backtrace functionality

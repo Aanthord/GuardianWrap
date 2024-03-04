@@ -1,4 +1,4 @@
-#include "utils.h" // Include the custom utils header
+#include "include/utils.h" // Include the custom utils header
 #include <stdio.h> // Standard I/O operations
 #include <stdlib.h> // Standard library functions
 #include <signal.h> // Signal handling functions

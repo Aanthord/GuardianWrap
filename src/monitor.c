@@ -1,5 +1,5 @@
-#include "monitor.h" // Include the custom monitor header
-#include "logger.h" // Include the logger for logging alerts
+#include "include/monitor.h" // Include the custom monitor header
+#include "include/logger.h" // Include the logger for logging alerts
 #include <stdio.h> // Standard I/O operations
 #include <stdlib.h> // Standard library functions
 #include <unistd.h> // POSIX operating system API
