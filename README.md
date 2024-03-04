@@ -1,148 +1,109 @@
 # Guardian Wrapper Project
 
-The Guardian Wrapper Project enhances Linux application security through advanced monitoring techniques. It includes stack canary monitoring to detect buffer overflows, secure logging with BLAKE3 hashing for log integrity, and dynamic response mechanisms for real-time security incident handling.
+The Guardian Wrapper Project aims to enhance Linux application security through the use of eBPF for syscall monitoring, stack canary checks for buffer overflow protection, and secure logging mechanisms. It combines Rust and Go for system-level monitoring and management, leveraging the power of eBPF to provide real-time, low-overhead security measures.
 
 ## Table of Contents
+
 - [Overview](#overview)
-- [Project Objectives](#project-objectives)
-- [Project Components and Progress](#project-components-and-progress)
-  - [Stack Canary Monitoring](#stack-canary-monitoring)
-  - [Secure Logging System](#secure-logging-system)
-  - [Dynamic Response Mechanisms](#dynamic-response-mechanisms)
-  - [Utility Functions](#utility-functions)
-  - [Integration and System Testing](#integration-and-system-testing)
-- [Documentation and User Guides](#documentation-and-user-guides)
-  - [Go Orchestration Layer Detailed Guide](#go-orchestration-layer-detailed-guide)
-  - [Rust Integration for System Monitoring](#rust-integration-for-system-monitoring)
-  - [eBPF Exec Logger Documentation](#ebpf-exec-logger-documentation)
-- [Getting Started](#getting-started)
-- [Test Scenario: Monitoring and Reacting to execve Syscalls](#test-scenario-monitoring-and-reacting-to-execve-syscalls)
+- [Features](#features)
+- [Installation](#installation)
+  - [Prerequisites](#prerequisites)
+  - [Building the Project](#building-the-project)
+- [Usage](#usage)
+- [Development](#development)
+  - [eBPF Component](#ebpf-component)
+  - [Go Orchestration Layer](#go-orchestration-layer)
+  - [Rust Component](#rust-component)
+- [Contributing](#contributing)
+- [License](#license)
 
 ## Overview
 
-The Guardian Wrapper Project enhances Linux application security through advanced monitoring techniques. It includes stack canary monitoring to detect buffer overflows, secure logging with BLAKE3 hashing for log integrity, and dynamic response mechanisms for real-time security incident handling.
+Guardian Wrapper utilizes eBPF for monitoring system calls, Rust for system-level monitoring, and Go for orchestrating eBPF programs and handling secure logging. This blend of technologies allows for a comprehensive security posture that is both efficient and effective.
 
-## Project Objectives
+## Features
 
-- **Enhance Application Security:** Monitor applications in real-time for security breaches and respond dynamically to threats.
-- **Secure Logging:** Implement secure logging mechanisms using BLAKE3 hashing to ensure log integrity.
-- **Automated Response:** Develop automated response strategies for various security incidents, enhancing application resilience.
+- **Real-time Syscall Monitoring:** Uses eBPF programs to monitor and log system calls, detecting potentially malicious activity.
+- **Stack Canary Checks:** Implements stack canaries to protect against buffer overflow attacks.
+- **Secure Logging:** Utilizes BLAKE3 hashing for secure and tamper-evident logging.
+- **Dynamic Threat Response:** Provides mechanisms for dynamic response to detected threats, improving system resilience.
+- **Cross-Language Integration:** Leverages the strengths of Rust and Go alongside eBPF for a powerful and flexible security solution.
 
-## Project Components and Progress
-
-### Stack Canary Monitoring
-
-- **Objective:** Detect memory corruption incidents like buffer overflows.
-- **Progress:** 70% complete. Basic structure implemented, pending final testing and integration.
-
-### Secure Logging System
-
-- **Objective:** Securely log application activities, incorporating BLAKE3 hashing.
-- **Progress:** 80% complete. Implementation in place, pending optimizations and enhancements.
-
-### Dynamic Response Mechanisms
-
-- **Objective:** Automate responses to monitoring alerts for robust incident handling.
-- **Progress:** 75% complete. Actions defined and partially implemented, awaiting full integration.
-
-### Utility Functions
-
-- **Objective:** Provide essential utility functions for the project, such as signal handling.
-- **Progress:** 90% complete. Core utilities implemented, with room for additional features.
-
-### Integration and System Testing
-
-- **Objective:** Ensure cohesive operation of all components under various scenarios.
-- **Progress:** 50% complete. Initial integration done, comprehensive testing required.
-
-## Documentation and User Guides
-
-This section offers detailed setup, configuration, and operational guidance to effectively utilize the Guardian Wrapper Project. It encompasses explanations of individual components, including the Go orchestration layer, Rust integration for system monitoring, and the eBPF exec logger.
-
-### Go Orchestration Layer Detailed Guide
-
-The Go orchestration layer serves as the central component for managing eBPF program interactions, WebSocket communications for real-time event streaming, and signal handling for graceful shutdowns. Below is an in-depth overview of its implementation.
-
-### Rust Integration for System Monitoring
-
-The `main.rs` file in the GuardianWrap project plays a crucial role in monitoring system events, particularly focusing on `execve` and file operation events, through the integration of Rust with eBPF. This section provides a comprehensive look at its implementation and functionality.
-
-### eBPF Exec Logger Documentation
-
-This documentation outlines the `exec_logger.c` script, part of the GuardianWrap project, designed to log exec operations performed by processes on a Linux system using eBPF (Extended Berkeley Packet Filter).
-
-## Getting Started
+## Installation
 
 ### Prerequisites
 
-- Linux operating system
-- GCC compiler
-- BLAKE3 library
+- Linux kernel 4.18 or newer with eBPF support.
+- Go 1.14 or newer for the orchestration layer.
+- Rust 1.41 or newer for system monitoring components.
+- LLVM and Clang for compiling eBPF programs.
+- libbpf for eBPF program loading and management.
+- bpftool for generating eBPF skeletons.
 
-### Installation
+### Building the Project
 
+1. **Clone the Repository:**
+    ```bash
+    git clone https://github.com/yourusername/guardianwrapper.git
+    cd guardianwrapper
+    ```
+
+2. **Compile the eBPF Program:**
+    - Use Clang to compile the eBPF program:
+        ```bash
+        clang -O2 -target bpf -c ebpf/exec_logger.bpf.c -o ebpf/exec_logger.bpf.o
+        ```
+    - Generate the eBPF skeleton with bpftool:
+        ```bash
+        bpftool gen skeleton ebpf/exec_logger.bpf.o > src/exec_logger.skel.h
+        ```
+
+3. **Build Rust and Go Components:**
+    - Navigate to the Rust component directory and build:
+        ```bash
+        cd rust
+        cargo build --release
+        ```
+    - Navigate to the Go component directory and build:
+        ```bash
+        cd ../go
+        go build -o guardianwrap .
+        ```
+
+## Usage
+
+Launch an application within Guardian Wrapper's monitored environment:
 ```bash
-# Clone the repository
-git clone <repository_url>
+./guardianwrap <path_to_application>
+```
+## Development
 
-# Compile the project
-make all
+### eBPF Component
 
-# Install the application (optional)
-sudo make install
-Test Scenario: Monitoring and Reacting to execve Syscalls
-Objective: Verify that GuardianWrap can monitor execve syscalls, log them immutably, add stack canaries, and dump the stack if specified syscalls are triggered.
+The `exec_logger.bpf.c` program is responsible for monitoring system calls and emitting events to user space. It's compiled into eBPF bytecode and loaded into the Linux kernel, where it attaches to tracepoints or kprobes to monitor system behavior in real-time.
 
-Setup Environment
+### Go Orchestration Layer
 
-Compile eBPF Program: Follow the compilation steps outlined previously to compile the exec_logger.c eBPF program.
-Prepare GuardianWrap Components: Ensure the C wrapper (main.c), Rust component (main.rs), and Go orchestration layer (main.go) are compiled and ready for execution. Make sure the eBPF bytecode is accessible to the GuardianWrap.
-Write Test Script
+This layer manages eBPF programs and processes the events they emit. It's designed for logging activities and triggering dynamic responses based on specific system events. The Go layer utilizes channels and goroutines for efficient event processing and management, providing a robust foundation for the system's reactive capabilities.
 
-Develop a test script that automates the execution of a test application under the GuardianWrap's supervision.
-bash
-Copy code
-#!/bin/bash
+### Rust Component
 
-# Path to the GuardianWrap executable and test application
-GUARDIAN_WRAP="./guardianwrap"
-TEST_APP="./test_app"
-LOG_FILE="/var/log/guardianwrap.log"
-STACK_DUMP_FILE="/var/log/guardianwrap_stack_dump.txt"
+The Rust component enhances system monitoring capabilities by leveraging Rust's performance and safety features. It's used for tasks that require high-speed data processing or direct system interaction, complementing the eBPF and Go components to offer comprehensive monitoring and security features.
 
-# Clean up log files
-rm -f $LOG_FILE
-rm -f $STACK_DUMP_FILE
+## Contributing
 
-# Start GuardianWrap with the test application
-$GUARDIAN_WRAP $TEST_APP &
+Contributions to Guardian Wrapper are welcome! If you're interested in helping to improve the project, please follow these steps:
 
-# Wait for the test application to complete
-wait
+1. Fork the repository on GitHub.
+2. Create a new feature branch from the main branch.
+3. Implement your feature or bug fix.
+4. Commit your changes with a clear and descriptive message.
+5. Push your branch and submit a pull request for review.
 
-# Check log file for execve syscall entries
-if grep -q "execve" $LOG_FILE; then
-    echo "Test Passed: execve syscalls logged."
-else
-    echo "Test Failed: execve syscalls not found in log."
-    exit 1
-fi
+Your contributions are greatly appreciated and will help make Guardian Wrapper more robust and feature-rich.
 
-# Optionally, check for stack dumps if the test application triggers a monitored condition
-if [ -f "$STACK_DUMP_FILE" ]; then
-    echo "Stack dump created for monitored syscalls."
-else
-    echo "No stack dump file found; either not triggered or test failed."
-fi
+## License
 
-exit 0
-Execute the Test
-Run the test script and observe the output. Ensure your test application (test_app) performs actions that trigger execve syscalls, and optionally, actions that should trigger stack dumps based on your security policies.
-bash
-Copy code
-chmod +x test_guardianwrap.sh
-./test_guardianwrap.sh
-Evaluate Results
-Success Criteria: The test is successful if the execve syscalls are logged as expected and stack dumps are created for specified conditions.
-Failure Analysis: If syscalls are not logged or stack dumps are not generated as expected, investigate the integration points between the eBPF program, C wrapper, Rust component, and Go orchestration layer. Ensure the eBPF program is correctly attached and monitoring syscalls, and that GuardianWrap components are correctly handling and logging events.
-This test validates the integration and functionality of the GuardianWrap project components in a cohesive workflow, ensuring the system can monitor, log, and react to system calls in a sandboxed environment.
+Guardian Wrapper is made available under the MIT License. This license allows you to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the software and to permit persons to whom the software is furnished to do so, subject to the following conditions:
+
+A copy of the MIT License should be included with the project. For more details, see the [LICENSE](LICENSE) file included with this repository.
