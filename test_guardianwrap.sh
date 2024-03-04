@@ -1,35 +1,34 @@
 #!/bin/bash
 
-# Path to the GuardianWrap executable and test application
-GUARDIAN_WRAP="./guardianwrap" # Assume this is the compiled binary of the C wrapper
-TEST_APP="./test_app" # A simple application that triggers different syscalls
-LOG_FILE="/var/log/guardianwrap.log"
-STACK_DUMP_FILE="/var/log/guardianwrap_stack_dump.txt"
+# Define paths to the essential components of GuardianWrap
+GUARDIAN_WRAP="./guardianwrap" # Path to the Go orchestration layer binary
+TEST_APP="./test_app" # Path to a test application designed to trigger syscalls of interest
+LOG_FILE="/var/log/guardianwrap.log" # Log file where syscall events are recorded
+EVENTS_FILE="/var/log/guardianwrap_events.json" # File for eBPF events, assuming JSON format for simplicity
 
-# Clean up log files
-rm -f $LOG_FILE
-rm -f $STACK_DUMP_FILE
+# Clean up previous log and events files
+rm -f "$LOG_FILE" "$EVENTS_FILE"
 
-# Start GuardianWrap with the test application
+# Start the GuardianWrap around the test application
 $GUARDIAN_WRAP $TEST_APP &
 
-# Wait for the test application to complete
-wait
+# Capture the PID of the GuardianWrap process
+GW_PID=$!
 
-# Check log file for execve syscall entries
-if grep -q "execve" $LOG_FILE; then
+# Wait for the test application to complete its execution
+wait $GW_PID
+
+# Check the events file for specific syscall entries, assuming JSON format
+if grep -q "execve" "$EVENTS_FILE"; then
     echo "Test Passed: execve syscalls logged."
 else
-    echo "Test Failed: execve syscalls not found in log."
+    echo "Test Failed: execve syscalls not found in events."
     exit 1
 fi
 
-# Optionally, check for stack dumps if the test application triggers a monitored condition
-if [ -f "$STACK_DUMP_FILE" ]; then
-    echo "Stack dump created for monitored syscalls."
-else
-    echo "No stack dump file found; either not triggered or test failed."
-fi
+# This script now focuses on checking the eBPF events file for syscalls,
+# as it represents the primary mechanism for monitoring with GuardianWrap.
+# Adjustments may be necessary based on the actual format and structure of your events file.
 
 exit 0
 
