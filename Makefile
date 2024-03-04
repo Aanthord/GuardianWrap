@@ -3,6 +3,7 @@ CC := clang
 BPFTOOL := bpftool
 GO := go
 RUSTC := cargo
+KERNEL_HEADERS := /path/to/kernel/headers
 EBPF_SOURCE := ebpf/exec_logger.bpf.c
 EBPF_OUT := ebpf/exec_logger.bpf.o
 EBPF_SKELETON := src/exec_logger.skel.h
@@ -34,7 +35,7 @@ ebpf: $(EBPF_OUT) $(EBPF_SKELETON)
 
 $(EBPF_OUT): $(EBPF_SOURCE)
 	@echo "Building eBPF program..."
-	$(CC) -O2 -g -Wall -target bpf -c $< -o $@
+	$(CC) -O2 -g -Wall -target bpf -I$(KERNEL_HEADERS)/usr/include $(CFLAGS) -c $< -o $@
 	@echo "eBPF program built."
 
 $(EBPF_SKELETON): $(EBPF_OUT)
