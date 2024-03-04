@@ -94,6 +94,13 @@ clean:
 	rm -f $(GO_TARGET)
 	@echo "Cleanup done."
 
+# Generate vmlinux.h target
+generate_vmlinux_h:
+	@echo "Generating vmlinux.h..."
+	@bpftool btf dump file /sys/kernel/btf/vmlinux format c > vmlinux.h
+	@mv vmlinux.h src/include/
+	@echo "vmlinux.h generated and moved to src/include/"
+
 # Docker commands
 docker-build:
 	docker build -t $(DOCKER_IMAGE_NAME) .
@@ -101,4 +108,4 @@ docker-build:
 docker-make-all: docker-build
 	docker run --rm --name $(DOCKER_CONTAINER_NAME) -v "$(PWD)":/usr/src/app $(DOCKER_IMAGE_NAME) make all
 
-.PHONY: all validate_deps ebpf c_wrapper rust go test test_ebpf test_c_wrapper test_rust test_go clean docker-build docker-make-all
+.PHONY: all validate_deps ebpf c_wrapper rust go test test_ebpf test_c_wrapper test_rust test_go clean docker-build docker-make-all generate_vmlinux_h
